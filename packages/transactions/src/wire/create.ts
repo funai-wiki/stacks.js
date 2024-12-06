@@ -21,7 +21,7 @@ import {
   CoinbasePayloadToAltRecipient,
   CoinbasePayloadWire,
   ContractCallPayload,
-  ContractPrincipalWire,
+  ContractPrincipalWire, InferPayloadWire,
   LengthPrefixedList,
   LengthPrefixedStringWire,
   MemoStringWire,
@@ -74,6 +74,29 @@ export function createMessageSignature(signature: string): MessageSignatureWire 
   return {
     type: StacksWireType.MessageSignature,
     data: signature,
+  };
+}
+
+export function createInferPayload(
+  inferUserAddress: string | PrincipalCV,
+  userInput: string | LengthPrefixedStringWire,
+  context: string | LengthPrefixedStringWire,
+): InferPayloadWire {
+  if (typeof inferUserAddress === 'string') {
+    inferUserAddress = principalCV(inferUserAddress);
+  }
+  if (typeof userInput === 'string') {
+    userInput = createLPString(userInput);
+  }
+  if (typeof context === 'string') {
+    context = createLPString(context);
+  }
+  return {
+    type: StacksWireType.Payload,
+    payloadType: PayloadType.Infer,
+    inferUserAddress,
+    userInput,
+    context,
   };
 }
 

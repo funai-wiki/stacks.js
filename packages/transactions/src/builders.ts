@@ -44,7 +44,7 @@ import {
   createContractCallPayload,
   createLPList,
   createSmartContractPayload,
-  createTokenTransferPayload,
+  createTokenTransferPayload, createInferPayload,
 } from './wire';
 
 /** @deprecated Not used internally */
@@ -102,9 +102,114 @@ export interface SignedTokenTransferOptions extends TokenTransferOptions {
   senderKey: PrivateKey;
 }
 
+export type InferOptions = {
+  /** the address of the sender of the infer tx */
+  inferUserAddress: string;
+  /** the input of the infer tx */
+  userInput: string;
+  /** the context of the infer tx */
+  context: string;
+  /** the transaction fee in microstacks */
+  fee?: IntegerType;
+  /** the transaction nonce, which must be increased monotonically with each new transaction */
+  nonce?: IntegerType;
+  /** set to true if another account is sponsoring the transaction (covering the transaction fee) */
+  sponsored?: boolean;
+} & NetworkClientParam;
+
+export interface UnsignedInferOptions extends InferOptions {
+  publicKey: PublicKey;
+}
+
+export interface SignedInferOptions extends InferOptions {
+  senderKey: PrivateKey;
+}
+
 export type UnsignedMultiSigTokenTransferOptions = TokenTransferOptions & UnsignedMultiSigOptions;
 
 export type SignedMultiSigTokenTransferOptions = TokenTransferOptions & SignedMultiSigOptions;
+
+export async function makeUnsignedInfer(
+  txOptions: UnsignedInferOptions
+): Promise<StacksTransactionWire> {
+  const defaultOptions = {
+    fee: BigInt(0),
+    nonce: BigInt(0),
+    network: STACKS_MAINNET,
+  };
+
+  const options = Object.assign(defaultOptions, txOptions);
+  options.network = networkFrom(options.network);
+  options.client = Object.assign({}, clientFromNetwork(options.network), txOptions.client);
+
+  const payload = createInferPayload(
+    options.inferUserAddress,
+    options.userInput,
+    options.context
+  );
+
+  let spendingCondition: SpendingCondition | null = null;
+
+  if ('publicKey' in options) {
+    // single-sig
+    spendingCondition = createSingleSigSpendingCondition(
+      AddressHashMode.P2PKH,
+      options.publicKey,
+      options.nonce,
+      options.fee
+    );
+  } else {
+    // multi-sig
+    // TODO: implement multi-sig infer
+    return Promise.reject('Multi-sig infer not yet implemented');
+  }
+
+  const authorization = options.sponsored
+    ? createSponsoredAuth(spendingCondition)
+    : createStandardAuth(spendingCondition);
+
+  const transaction = new StacksTransactionWire({
+    transactionVersion: options.network.transactionVersion,
+    chainId: options.network.chainId,
+    auth: authorization,
+    payload,
+    // no post conditions on STX infer (see SIP-005)
+  });
+
+  if (txOptions.fee == null) {
+    const fee = await fetchFeeEstimate({ transaction, ...options });
+    transaction.setFee(fee);
+  }
+
+  if (txOptions.nonce == null) {
+    const addressVersion = options.network.addressVersion.singleSig;
+    const address = c32address(addressVersion, transaction.auth.spendingCondition!.signer);
+    const txNonce = await fetchNonce({ address, ...options });
+    transaction.setNonce(txNonce);
+  }
+
+  return transaction;
+}
+
+
+export async function makeInfer(txOptions: SignedInferOptions): Promise<StacksTransactionWire> {
+  if ('senderKey' in txOptions) {
+    // single-sig
+    const publicKey = privateKeyToPublic(txOptions.senderKey);
+    const options = omit(txOptions, 'senderKey');
+    const transaction = await makeUnsignedInfer({ publicKey, ...options });
+
+    const privKey = txOptions.senderKey;
+    const signer = new TransactionSigner(transaction);
+    signer.signOrigin(privKey);
+
+    return transaction;
+  } else {
+    // multi-sig
+    // TODO: implement multi-sig infer
+    return Promise.reject('Multi-sig infer not yet implemented');
+  }
+}
 
 /**
  * Generates an unsigned Stacks token transfer transaction

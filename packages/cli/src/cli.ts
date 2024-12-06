@@ -18,14 +18,14 @@ import {
   fetchFeeEstimateTransfer,
   getAddressFromPrivateKey,
   makeContractCall,
-  makeContractDeploy,
+  makeContractDeploy, makeInfer,
   makeSTXTokenTransfer,
   PostConditionMode,
   privateKeyToPublic,
   ReadOnlyFunctionOptions,
   serializePayload,
   SignedContractCallOptions,
-  SignedContractDeployOptions,
+  SignedContractDeployOptions, SignedInferOptions,
   SignedTokenTransferOptions,
   signWithKey,
   StacksTransactionWire,
@@ -668,6 +668,53 @@ function getAccountHistory(_network: CLINetworkAdapter, args: string[]): Promise
 //       });
 //   }
 // }
+
+async function infer(_network: CLINetworkAdapter, args: string[]): Promise<string> {
+  const inferUserAddress = args[0];
+  const userInput = args[1];
+  const context = args[2];
+  const fee = BigInt(args[3]);
+  const nonce = BigInt(args[4]);
+  const privateKey = args[5];
+
+  const network = _network.isMainnet()? STACKS_MAINNET: STACKS_TESTNET;
+
+  const options: SignedInferOptions = {
+    inferUserAddress: inferUserAddress,
+    userInput: userInput,
+    context: context,
+    senderKey: privateKey,
+    fee,
+    nonce,
+    network,
+  };
+
+  const tx: StacksTransactionWire = await makeInfer(options);
+
+  if (estimateOnly) {
+    return fetchFeeEstimateTransfer({ transaction: tx, network }).then(cost => {
+      return cost.toString(10);
+    });
+  }
+
+  if (txOnly) {
+    return Promise.resolve(tx.serialize());
+  }
+
+  return broadcastTransaction({ transaction: tx, network })
+    .then((response: TxBroadcastResult) => {
+      if (response.hasOwnProperty('error')) {
+        return response;
+      }
+      return {
+        txid: `0x${tx.txid()}`,
+        transaction: generateExplorerTxPageUrl(tx.txid(), network),
+      };
+    })
+    .catch(error => {
+      return error.toString();
+    });
+}
 
 /*
  * Send tokens from one account private key to another account's address.
@@ -1962,6 +2009,7 @@ const COMMANDS: Record<string, CommandFunction> = {
   register: register,
   tx_preorder: preorder,
   send_tokens: sendTokens,
+  infer: infer,
   stack: stack,
   migrate_subdomains: migrateSubdomains,
   stacking_status: stackingStatus,
@@ -1972,6 +2020,7 @@ const COMMANDS: Record<string, CommandFunction> = {
  * CLI main entry point
  */
 export function CLIMain() {
+  console.log('Funai Stacks CLI ');
   const argv = process.argv;
   const opts = getCLIOpts(argv);
 
