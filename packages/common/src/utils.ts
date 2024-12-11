@@ -329,6 +329,41 @@ export function getGlobalObjects<K extends Extract<keyof Window, string>>(
 export type IntegerType = number | string | bigint | Uint8Array;
 
 /**
+ * Generates a random IntegerType.
+ * @param type Specifies the type of integer to generate: "number", "string", "bigint", or "Uint8Array".
+ * @param min Minimum value (inclusive) for "number" or "bigint" types.
+ * @param max Maximum value (inclusive) for "number" or "bigint" types.
+ * @param length Length of the Uint8Array for "Uint8Array" type.
+ * @returns A random value of the specified IntegerType.
+ */
+export function getRandomIntegerType(
+  type: "number" | "string" | "bigint" | "Uint8Array",
+  min: number = 0,
+  max: number = 100,
+  length: number = 8
+): IntegerType {
+  switch (type) {
+    case "number":
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    case "string":
+      const randomNum = Math.floor(Math.random() * (max - min + 1)) + min;
+      return randomNum.toString();
+    case "bigint":
+      const randomBigInt = BigInt(Math.floor(Math.random() * (max - min + 1)) + min);
+      return randomBigInt;
+    case "Uint8Array":
+      const array = new Uint8Array(length);
+      for (let i = 0; i < length; i++) {
+        array[i] = Math.floor(Math.random() * 256); // Random byte [0, 255]
+      }
+      return array;
+    default:
+      throw new Error("Unsupported type");
+  }
+}
+
+
+/**
  * Converts an integer-compatible value to a Uint8Array (given a byte length)
  * @example
  * ```ts
