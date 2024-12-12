@@ -2486,6 +2486,51 @@ export const CLI_ARGS = {
         '\n',
       group: 'Account Management',
     },
+    infer: {
+      type: 'array',
+      items: [
+        {
+          name: 'address',
+          type: 'string',
+          realtype: 'address',
+          pattern: STACKS_ADDRESS_PATTERN,
+        },
+        {
+          name: 'userInput',
+          type: 'string',
+          realtype: 'string',
+          pattern: '^.{0,34}$',
+        },
+        {
+          name: 'context',
+          type: 'string',
+          realtype: 'string',
+          pattern: '^.{0,34}$',
+        },
+        {
+          name: 'fee',
+          type: 'string',
+          realtype: 'integer',
+          pattern: '^[0-9]+$',
+        },
+        {
+          name: 'nonce',
+          type: 'string',
+          realtype: 'integer',
+          pattern: '^[0-9]+$',
+        },
+        {
+          name: 'payment_key',
+          type: 'string',
+          realtype: 'private_key',
+          pattern: `${PRIVATE_KEY_PATTERN_ANY}`,
+        },
+      ],
+      minItems: 5,
+      maxItems: 6,
+      help: 'infer\n',
+      group: 'Account Management',
+    },
     stack: {
       type: 'array',
       items: [

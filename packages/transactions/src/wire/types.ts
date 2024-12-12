@@ -87,7 +87,8 @@ export type PayloadWire =
   | CoinbasePayloadWire
   | CoinbasePayloadToAltRecipient
   | NakamotoCoinbasePayloadWire
-  | TenureChangePayloadWire;
+  | TenureChangePayloadWire
+  | InferPayloadWire;
 
 export interface TokenTransferPayloadWire {
   readonly type: StacksWireType.Payload;
@@ -95,6 +96,14 @@ export interface TokenTransferPayloadWire {
   readonly recipient: PrincipalCV;
   readonly amount: bigint;
   readonly memo: MemoStringWire;
+}
+
+export interface InferPayloadWire {
+  readonly type: StacksWireType.Payload;
+  readonly payloadType: PayloadType.Infer;
+  readonly inferUserAddress: PrincipalCV;
+  readonly userInput: LengthPrefixedStringWire;
+  readonly context : LengthPrefixedStringWire;
 }
 
 export type PayloadInput =
@@ -109,7 +118,8 @@ export type PayloadInput =
   | CoinbasePayloadWire
   | CoinbasePayloadToAltRecipient
   | NakamotoCoinbasePayloadWire
-  | TenureChangePayloadWire;
+  | TenureChangePayloadWire
+  | InferPayloadWire;
 
 export interface ContractCallPayload {
   readonly type: StacksWireType.Payload;

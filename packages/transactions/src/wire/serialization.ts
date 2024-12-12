@@ -44,7 +44,7 @@ import { compressPublicKey, createStacksPublicKey, uncompressPublicKey } from '.
 import { rightPadHexToLength } from '../utils';
 import {
   createCoinbasePayload,
-  createContractCallPayload,
+  createContractCallPayload, createInferPayload,
   createLPList,
   createLPString,
   createMessageSignature,
@@ -434,6 +434,11 @@ export function serializePayloadBytes(payload: PayloadInput): Uint8Array {
       bytesArray.push(intToBytes(payload.amount, 8));
       bytesArray.push(serializeStacksWireBytes(payload.memo));
       break;
+    case PayloadType.Infer:
+      bytesArray.push(serializeCVBytes(payload.inferUserAddress));
+      bytesArray.push(serializeStacksWireBytes(payload.userInput));
+      bytesArray.push(serializeStacksWireBytes(payload.context));
+      break;
     case PayloadType.ContractCall:
       bytesArray.push(serializeStacksWireBytes(payload.contractAddress));
       bytesArray.push(serializeStacksWireBytes(payload.contractName));
@@ -498,6 +503,11 @@ export function deserializePayload(serialized: string | Uint8Array | BytesReader
       const amount = intToBigInt(bytesReader.readBytes(8));
       const memo = deserializeMemoString(bytesReader);
       return createTokenTransferPayload(recipient, amount, memo);
+    case PayloadType.Infer:
+      const inferUserAddress = deserializeCV(bytesReader) as PrincipalCV;
+      const userInput = deserializeLPString(bytesReader);
+      const context = deserializeLPString(bytesReader);
+      return createInferPayload(inferUserAddress, userInput, context);
     case PayloadType.ContractCall:
       const contractAddress = deserializeAddress(bytesReader);
       const contractCallName = deserializeLPString(bytesReader);

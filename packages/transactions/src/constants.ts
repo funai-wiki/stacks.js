@@ -25,6 +25,7 @@ export enum PayloadType {
   CoinbaseToAltRecipient = 0x05,
   TenureChange = 0x7,
   NakamotoCoinbase = 0x08,
+  Infer = 0x09,
 }
 
 /**

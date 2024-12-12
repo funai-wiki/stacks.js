@@ -1,7 +1,7 @@
 import * as scureBip39 from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import { buildPreorderNameTx, buildRegisterNameTx } from '@stacks/bns';
-import { bytesToHex, HIRO_MAINNET_URL, HIRO_TESTNET_URL } from '@stacks/common';
+import { bytesToHex, getRandomIntegerType, HIRO_MAINNET_URL, HIRO_TESTNET_URL } from '@stacks/common';
 import {
   ACCOUNT_PATH,
   broadcastTransaction,
@@ -18,14 +18,14 @@ import {
   fetchFeeEstimateTransfer,
   getAddressFromPrivateKey,
   makeContractCall,
-  makeContractDeploy,
+  makeContractDeploy, makeInfer,
   makeSTXTokenTransfer,
   PostConditionMode,
   privateKeyToPublic,
   ReadOnlyFunctionOptions,
   serializePayload,
   SignedContractCallOptions,
-  SignedContractDeployOptions,
+  SignedContractDeployOptions, SignedInferOptions,
   SignedTokenTransferOptions,
   signWithKey,
   StacksTransactionWire,
@@ -668,6 +668,53 @@ function getAccountHistory(_network: CLINetworkAdapter, args: string[]): Promise
 //       });
 //   }
 // }
+
+async function infer(_network: CLINetworkAdapter, args: string[]): Promise<string> {
+  const inferUserAddress = args[0];
+  const userInput = args[1];
+  const context = args[2];
+  const fee = BigInt(args[3]);
+  const nonce = BigInt(args[4]);
+  const privateKey = args[5];
+
+  const network = _network.isMainnet()? STACKS_MAINNET: STACKS_TESTNET;
+
+  const options: SignedInferOptions = {
+    inferUserAddress: inferUserAddress,
+    userInput: userInput,
+    context: context,
+    senderKey: privateKey,
+    fee,
+    nonce,
+    network,
+  };
+
+  const tx: StacksTransactionWire = await makeInfer(options);
+
+  if (estimateOnly) {
+    return fetchFeeEstimateTransfer({ transaction: tx, network }).then(cost => {
+      return cost.toString(10);
+    });
+  }
+
+  if (txOnly) {
+    return Promise.resolve(tx.serialize());
+  }
+
+  return broadcastTransaction({ transaction: tx, network })
+    .then((response: TxBroadcastResult) => {
+      if (response.hasOwnProperty('error')) {
+        return response;
+      }
+      return {
+        txid: `0x${tx.txid()}`,
+        transaction: generateExplorerTxPageUrl(tx.txid(), network),
+      };
+    })
+    .catch(error => {
+      return error.toString();
+    });
+}
 
 /*
  * Send tokens from one account private key to another account's address.
@@ -1701,34 +1748,98 @@ async function canStack(_network: CLINetworkAdapter, args: string[]): Promise<st
 }
 
 async function stack(_network: CLINetworkAdapter, args: string[]): Promise<string> {
+  // const amount = BigInt(args[0]);
+  // const cycles = Number(args[1]);
+  // const poxAddress = args[2];
+  // const privateKey = args[3];
+  //
+  // // let fee = new BN(0);
+  // // let nonce = new BN(0);
+  //
+  // // if (args.length > 3 && !!args[4]) {
+  // //   fee = new BN(args[4]);
+  // // }
+  //
+  // // if (args.length > 4 && !!args[5]) {
+  // //   nonce = new BN(args[5]);
+  // // }
+  //
+  // const network = _network.isMainnet() ? STACKS_MAINNET : STACKS_TESTNET;
+  //
+  // const apiConfig = new Configuration({
+  //   basePath: network.client.baseUrl,
+  // });
+  // const accounts = new AccountsApi(apiConfig);
+  //
+  // const stxAddress = getAddressFromPrivateKey(privateKey, network);
+  //
+  // const balancePromise = accounts.getAccountBalance({
+  //   principal: stxAddress,
+  // });
+  //
+  // const stacker = new StackingClient({ address: stxAddress, network });
+  //
+  // const poxInfoPromise = stacker.getPoxInfo();
+  //
+  // const coreInfoPromise = stacker.getCoreInfo();
+  //
+  // const stackingEligiblePromise = stacker.canStack({ poxAddress, cycles });
+  //
+  // return Promise.all([balancePromise, poxInfoPromise, coreInfoPromise, stackingEligiblePromise])
+  //   .then(([balance, poxInfo, coreInfo, stackingEligible]) => {
+  //     const minAmount = BigInt(poxInfo.min_amount_ustx);
+  //     const balanceBN = BigInt(balance.stx.balance);
+  //     const burnChainBlockHeight = coreInfo.burn_block_height;
+  //     const startBurnBlock = burnChainBlockHeight + 3;
+  //
+  //     if (minAmount > amount) {
+  //       throw new Error(
+  //         `Stacking amount less than required minimum of ${minAmount.toString()} microstacks`
+  //       );
+  //     }
+  //
+  //     if (amount > balanceBN) {
+  //       throw new Error(
+  //         `Stacking amount greater than account balance of ${balanceBN.toString()} microstacks`
+  //       );
+  //     }
+  //
+  //     if (!stackingEligible.eligible) {
+  //       throw new Error(`Account cannot participate in stacking. ${stackingEligible.reason}`);
+  //     }
+  //
+  //     return stacker.stack({
+  //       amountMicroStx: amount,
+  //       poxAddress,
+  //       cycles,
+  //       privateKey,
+  //       burnBlockHeight: startBurnBlock,
+  //     });
+  //   })
+  //   .then((response: TxBroadcastResult) => {
+  //     if ('error' in response) {
+  //       return response;
+  //     }
+  //     return {
+  //       txid: `0x${response.txid}`,
+  //       transaction: generateExplorerTxPageUrl(response.txid, network),
+  //     };
+  //   })
+  //   .catch(error => {
+  //     return error;
+  //   });
+
   const amount = BigInt(args[0]);
   const cycles = Number(args[1]);
   const poxAddress = args[2];
   const privateKey = args[3];
-
-  // let fee = new BN(0);
-  // let nonce = new BN(0);
-
-  // if (args.length > 3 && !!args[4]) {
-  //   fee = new BN(args[4]);
-  // }
-
-  // if (args.length > 4 && !!args[5]) {
-  //   nonce = new BN(args[5]);
-  // }
+  const maxAmountMicroStx = amount;
+  const signerKey = privateKeyToPublic(privateKey);
+  console.log('signerKey', signerKey);
 
   const network = _network.isMainnet() ? STACKS_MAINNET : STACKS_TESTNET;
 
-  const apiConfig = new Configuration({
-    basePath: network.client.baseUrl,
-  });
-  const accounts = new AccountsApi(apiConfig);
-
   const stxAddress = getAddressFromPrivateKey(privateKey, network);
-
-  const balancePromise = accounts.getAccountBalance({
-    principal: stxAddress,
-  });
 
   const stacker = new StackingClient({ address: stxAddress, network });
 
@@ -1738,10 +1849,10 @@ async function stack(_network: CLINetworkAdapter, args: string[]): Promise<strin
 
   const stackingEligiblePromise = stacker.canStack({ poxAddress, cycles });
 
-  return Promise.all([balancePromise, poxInfoPromise, coreInfoPromise, stackingEligiblePromise])
-    .then(([balance, poxInfo, coreInfo, stackingEligible]) => {
+  return Promise.all([poxInfoPromise, coreInfoPromise, stackingEligiblePromise])
+    .then(([poxInfo, coreInfo, stackingEligible]) => {
       const minAmount = BigInt(poxInfo.min_amount_ustx);
-      const balanceBN = BigInt(balance.stx.balance);
+      const currentCycle = poxInfo.reward_cycle_id;
       const burnChainBlockHeight = coreInfo.burn_block_height;
       const startBurnBlock = burnChainBlockHeight + 3;
 
@@ -1751,22 +1862,32 @@ async function stack(_network: CLINetworkAdapter, args: string[]): Promise<strin
         );
       }
 
-      if (amount > balanceBN) {
-        throw new Error(
-          `Stacking amount greater than account balance of ${balanceBN.toString()} microstacks`
-        );
-      }
-
       if (!stackingEligible.eligible) {
         throw new Error(`Account cannot participate in stacking. ${stackingEligible.reason}`);
       }
+      const authId = getRandomIntegerType("number", 1, 10000000);
+      const signerSignature = stacker.signPoxSignature({
+        topic: "stack-stx",
+        poxAddress,
+        rewardCycle: currentCycle,
+        period: cycles,
+        maxAmount: amount,
+        authId,
+        signerPrivateKey: privateKey,
+      });
 
       return stacker.stack({
         amountMicroStx: amount,
         poxAddress,
         cycles,
-        privateKey,
         burnBlockHeight: startBurnBlock,
+
+        signerKey: signerKey,
+        signerSignature,
+        maxAmount: maxAmountMicroStx,
+        authId,
+
+        privateKey,
       });
     })
     .then((response: TxBroadcastResult) => {
@@ -1962,6 +2083,7 @@ const COMMANDS: Record<string, CommandFunction> = {
   register: register,
   tx_preorder: preorder,
   send_tokens: sendTokens,
+  infer: infer,
   stack: stack,
   migrate_subdomains: migrateSubdomains,
   stacking_status: stackingStatus,
@@ -1972,6 +2094,7 @@ const COMMANDS: Record<string, CommandFunction> = {
  * CLI main entry point
  */
 export function CLIMain() {
+  console.log('Funai Stacks CLI ');
   const argv = process.argv;
   const opts = getCLIOpts(argv);
 
